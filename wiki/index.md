@@ -48,4 +48,4 @@
 * [Tokenization methods](tokenization.md)
 * [Encoder architecture](encoder.md)
 * [Encoder-decoder architecture](encoder-decoder.md)
-* [Non-Transformer architectures](non-transformer.md) - coming soon
+* [Non-Transformer architectures](non-transformer.md)
