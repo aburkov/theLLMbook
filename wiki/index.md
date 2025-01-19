@@ -11,7 +11,7 @@
 
 ## Extended Chapters
 
-* [Derivation for 1.7 Gradient Descent](http://www.google.com) - coming soon
+* [Derivation for 1.7 Gradient Descent](https://www.dropbox.com/scl/fi/c7mis58frqk5n88dhxjmb/chapter_1_extra_1.pdf?rlkey=rbhrgjl0lmz31btl9n1ahc56w&dl=0)
 
 ## Code
 
