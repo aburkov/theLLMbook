@@ -46,6 +46,6 @@
 
 * [Embeddings](embeddings.md)
 * [Tokenization methods](tokenization.md)
-* [Encoder architecture](encoder.md) - coming soon
+* [Encoder architecture](encoder.md)
 * [Encoder-decoder architecture](encoder-decoder.md) - coming soon
 * [Non-Transformer architectures](non-transformer.md) - coming soon
