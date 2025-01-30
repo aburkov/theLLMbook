@@ -11,7 +11,8 @@
 
 ## Extended Chapters
 
-* [Derivation for 1.7 Gradient Descent](https://www.dropbox.com/scl/fi/c7mis58frqk5n88dhxjmb/chapter_1_extra_1.pdf?rlkey=rbhrgjl0lmz31btl9n1ahc56w&dl=0)
+* [Derivation for 1.7 Gradient Descent](https://www.dropbox.com/scl/fi/zpnwrmhfatnoyy2sepucd/chapter_1_extra_1.pdf?rlkey=bj28oknku9ofs81nl59nv2wwu&dl=0)
+* [Derivation for 2.6. Evaluating Language Models](https://www.dropbox.com/scl/fi/9i1r13h06jevahdhez2dg/chapter_6_extra_1.pdf?rlkey=r9723j6dz2g3zo36um1fjytp4&dl=0)
 
 ## Code
 
