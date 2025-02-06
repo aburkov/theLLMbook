@@ -50,3 +50,7 @@
 * [Encoder architecture](encoder.md)
 * [Encoder-decoder architecture](encoder-decoder.md)
 * [Non-Transformer architectures](non-transformer.md)
+
+## Corrections
+
+* [Corrections](corrections.md)
