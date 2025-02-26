@@ -784,12 +784,7 @@ def train_with_grpo(model, tokenizer, train_data, num_iterations=1,
                     reward_function, optimizer, beta, epsilon
                 )
                 print(f"Iteration {iteration}/{num_iterations}, Step {step}/{steps_per_iteration}, "
-                      f"GRPO update {grpo_iter}/{mu}, Loss: {loss_value:.4f}")
-        
-        # Optional: Update reward model here if using reward model training
-        # This is not implemented in the original code but present in the pseudocode
-        print(f"Completed iteration {iteration}. Reward model update would happen here.")
-    
+                      f"GRPO update {grpo_iter}/{mu}, Loss: {loss_value:.4f}")    
     return policy_model
 
 def main():
