@@ -385,14 +385,13 @@ def selective_log_softmax(logits, input_ids):
     """
     # Convert raw logits into log probabilities along the vocabulary axis.
     log_probs = F.log_softmax(logits, dim=-1)  # Shape: (batch_size, seq_len, vocab_size)
-    
+
     # Reshape input_ids from (batch_size, seq_len) to (batch_size, seq_len, 1) for gathering.
     # Then, gather the log probability for each token in input_ids.
     selected_log_probs = log_probs.gather(dim=-1, index=input_ids.unsqueeze(-1))
-    
+
     # Remove the extra last dimension to get back to shape (batch_size, seq_len).
     return selected_log_probs.squeeze(-1)
-
 
 def compute_log_probabilities(model, input_ids, attention_mask, logits_to_keep):
     """
@@ -425,17 +424,16 @@ def compute_log_probabilities(model, input_ids, attention_mask, logits_to_keep):
 
     # Remove the last logit as it does not have a corresponding target token.
     logits = logits[:, :-1, :]  # New shape: (batch_size, total_seq_len - 1, vocab_size)
-    
+
     # Slice the input_ids to keep only the last logits_to_keep tokens.
     # This corresponds to the generated completion tokens.
     input_ids = input_ids[:, -logits_to_keep:]  # Shape: (batch_size, logits_to_keep)
-    
+
     # Also slice the logits to keep only those corresponding to the completion tokens.
     logits = logits[:, -logits_to_keep:, :]  # Shape: (batch_size, logits_to_keep, vocab_size)
-    
+
     # Compute and return the log probabilities for the selected tokens.
     return selective_log_softmax(logits, input_ids)
-
 
 def create_completion_mask(completion_ids, eos_token_id):
     """
@@ -462,20 +460,19 @@ def create_completion_mask(completion_ids, eos_token_id):
     # Initialize a tensor to store the index of the first EOS for each sequence.
     # If no EOS is found, default to the full sequence length (is_eos.size(1)).
     eos_idx = torch.full((is_eos.size(0),), is_eos.size(1), dtype=torch.long, device=completion_ids.device)
-    
+
     # Identify sequences that contain at least one EOS.
     mask_exists = is_eos.any(dim=1)
     # For sequences with an EOS, update eos_idx to the index of the first occurrence.
     eos_idx[mask_exists] = is_eos.int().argmax(dim=1)[mask_exists]
-    
+
     # Create a tensor of indices [0, 1, 2, ..., seq_len-1] and replicate it for each sequence in the batch.
     sequence_indices = torch.arange(is_eos.size(1), device=completion_ids.device).expand(is_eos.size(0), -1)
-    
+
     # Build the mask: positions with an index less than or equal to the first EOS index are marked as 1.
     completion_mask = (sequence_indices <= eos_idx.unsqueeze(1)).int()
-    
-    return completion_mask
 
+    return completion_mask
 
 def generate_completions(model, tokenizer, prompts, num_generations=4, max_completion_length=32):
     """
@@ -505,6 +502,7 @@ def generate_completions(model, tokenizer, prompts, num_generations=4, max_compl
     device = next(model.parameters()).device
 
     # Tokenize the list of prompts with padding. The padding_side="left" ensures alignment on the right.
+    tokenizer.padding_side  = "left"
     inputs = tokenizer(prompts, return_tensors="pt", padding=True, padding_side="left")
     prompt_ids = inputs["input_ids"].to(device)      # Shape: (batch_size, prompt_seq_len)
     prompt_mask = inputs["attention_mask"].to(device)  # Shape: (batch_size, prompt_seq_len)
@@ -524,7 +522,7 @@ def generate_completions(model, tokenizer, prompts, num_generations=4, max_compl
         pad_token_id=tokenizer.pad_token_id,
         eos_token_id=tokenizer.eos_token_id
     )
-    
+
     # Remove the prompt portion from the generated output to isolate the completion tokens.
     completion_ids = outputs[:, prompt_length:]  # Shape: (batch_size*num_generations, completion_seq_len)
 
@@ -532,35 +530,6 @@ def generate_completions(model, tokenizer, prompts, num_generations=4, max_compl
     completion_mask = create_completion_mask(completion_ids, tokenizer.eos_token_id)
 
     return prompt_ids, prompt_mask, completion_ids, completion_mask
-
-def optimize_model_memory(model):
-    """
-    Apply memory optimizations like proper gradient checkpointing setup.
-
-    Args:
-        model: The language model to optimize.
-
-    Returns:
-        The optimized model with memory saving features enabled.
-    """
-    # Ensure model is in training mode
-    model.train()
-    
-    # Disable caching for gradient checkpointing
-    model.config.use_cache = False
-    
-    # Enable gradient checkpointing
-    model.gradient_checkpointing_enable()
-    
-    # Enable input gradients properly
-    if hasattr(model, "enable_input_require_grads"):
-        model.enable_input_require_grads()
-    else:
-        def make_inputs_require_grad(module, input, output):
-            output.requires_grad_(True)
-        model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
-    
-    return model
 
 def generate_rollout_data(model, ref_model, tokenizer, batch_samples, num_generations, max_completion_length):
     """
@@ -578,6 +547,7 @@ def generate_rollout_data(model, ref_model, tokenizer, batch_samples, num_genera
     Returns:
         A dictionary with rollout data including both old and reference log probabilities.
     """
+    tokenizer.padding_side  = "left"
     device = next(model.parameters()).device
 
     # Extract prompts and answers.
@@ -647,6 +617,7 @@ def compute_group_relative_advantages(rewards, num_generations):
     advantages = (rewards - expanded_means) / (expanded_stds + 1e-4)
     
     return advantages.unsqueeze(1)  # Add dimension for token-wise operations
+
 
 def maximize_grpo_objective(model, ref_model, rollout_data, tokenizer, reward_function, 
                           optimizer, beta, epsilon):
@@ -761,7 +732,7 @@ def train_with_grpo(model, tokenizer, train_data, num_iterations=1,
         reference_model = reference_model.to(device)
         
         # Initialize optimizer
-        optimizer = torch.optim.AdamW(policy_model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(policy_model.parameters(), lr=learning_rate)
         policy_model.train()
         
         # Inner loop for policy updates
@@ -784,8 +755,34 @@ def train_with_grpo(model, tokenizer, train_data, num_iterations=1,
                     reward_function, optimizer, beta, epsilon
                 )
                 print(f"Iteration {iteration}/{num_iterations}, Step {step}/{steps_per_iteration}, "
-                      f"GRPO update {grpo_iter}/{mu}, Loss: {loss_value:.4f}")    
+                      f"GRPO update {grpo_iter}/{mu}, Loss: {loss_value:.4f}")
+        
+        # Optional: Update reward model here if using reward model training
+        # This is not implemented in the original code but present in the pseudocode
+        print(f"Completed iteration {iteration}. Reward model update would happen here.")
+    
     return policy_model
+
+def optimize_model_memory(model):
+    """Apply memory optimizations like proper gradient checkpointing setup"""
+    # Ensure model is in training mode
+    model.train()
+    
+    # Disable caching for gradient checkpointing
+    model.config.use_cache = False
+    
+    # Enable gradient checkpointing
+    model.gradient_checkpointing_enable()
+    
+    # Enable input gradients properly
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
+    else:
+        def make_inputs_require_grad(module, input, output):
+            output.requires_grad_(True)
+        model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+    
+    return model
 
 def main():
     """
@@ -806,7 +803,10 @@ def main():
     print(f"Using device: {device}")
 
     # Define the model name and output directory.
-    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+    model_name = "Qwen/Qwen2.5-0.5B-Instruct" # The 0.5B model is not smart enough
+                                              # to generate the <reasoning> and <answer> tags
+                                              # so several iterations of SFT to teach it these tags
+                                              # are recommended before RL
     output_dir = "math_solver_model"
 
     # Load the pre-trained causal language model.
@@ -818,7 +818,7 @@ def main():
         model_name,
         torch_dtype=torch.bfloat16,
         #attn_implementation="flash_attention_2",
-        device_map="auto"
+        device_map=None
     )
     print("Downloaded model")
     # Move the model to the determined device.
@@ -849,6 +849,7 @@ def main():
     print(f"Pre-GRPO Accuracy: {pre_grpo_accuracy:.2f}%")
 
     model = optimize_model_memory(model)
+    
     # -------------------------------
     # Step 1: RL FINETUNING (GRPO)
     # -------------------------------
@@ -859,19 +860,18 @@ def main():
 
     # Define RL training configuration.
     training_config = {
-        'num_iterations': 1,             # Number of outer iterations (reward model updates)
-        'steps_per_iteration': 500,      # Number of policy update steps per iteration
-        'batch_size': 4,                 # Number of different prompts to use per batch
-        'num_generations': 8,            # Number of completions to generate per prompt
-        'max_completion_length': 500,    # Maximum token length for each generated completion
-        'beta': 0.04,                    # KL divergence penalty coefficient (controls exploration/exploitation)
-        'learning_rate': 5e-6,           # Learning rate for the Adam optimizer
-        'mu': 1,                         # Number of GRPO updates per batch of generated completions
-        'epsilon': 0.1,                  # Policy ratio clipping parameter (controls policy update step size)
-        'reward_function': combined_reward  # Function used to score generated completions
+        'num_iterations' : 1,
+        'steps_per_iteration': 500,                    # Total number of RL training steps.
+        'batch_size': 4,                     # Number of samples per training step.
+        'num_generations': 16,                # Number of completions generated per prompt.
+        'max_completion_length': 500,        # Maximum token length for each generated completion.
+        'beta': 0.04,                         # KL divergence penalty coefficient.
+        'learning_rate': 5e-6,                # Learning rate for RL fine-tuning.
+        'mu': 1,
+        'epsilon': 0.1,
+        'reward_function': combined_reward
     }
-
-    # Finetune the model using GRPO RL training.
+    # Fine-tune the model using GRPO RL training.
     model = train_with_grpo(
         model=model,
         tokenizer=tokenizer,
@@ -892,7 +892,6 @@ def main():
     # Save the final finetuned model and tokenizer to disk.
     model.save_pretrained("grpo_finetuned_model")
     tokenizer.save_pretrained("grpo_finetuned_model")
-
 
 if __name__ == "__main__":
     main()
